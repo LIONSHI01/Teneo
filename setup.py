@@ -2,8 +2,8 @@ import aiohttp
 
 
 async def main():
-    email = input("input email : ")
-    password = input("input password : ")
+    email = input("请输入邮箱: ")
+    password = input("请输入密码: ")
     login_url = (
         "https://ikknngrgxuxgjhplbpey.supabase.co/auth/v1/token?grant_type=password"
     )
@@ -14,7 +14,7 @@ async def main():
     }
     headers = {
         "accept": "*/*",
-        "accept-language": "en-US,en;q=0.9,id;q=0.8",
+        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
         "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlra25uZ3JneHV4Z2pocGxicGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU0MzgxNTAsImV4cCI6MjA0MTAxNDE1MH0.DRAvf8nH1ojnJBc3rD_Nw6t1AV8X_g6gmY_HByG2Mag",
         "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlra25uZ3JneHV4Z2pocGxicGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU0MzgxNTAsImV4cCI6MjA0MTAxNDE1MH0.DRAvf8nH1ojnJBc3rD_Nw6t1AV8X_g6gmY_HByG2Mag",
         "content-type": "application/json;charset=UTF-8",
@@ -33,12 +33,12 @@ async def main():
     async with aiohttp.ClientSession() as client:
         result = await client.post(login_url, json=login_data, headers=headers)
         if result.status != 200:
-            print(f"[x] login failure, try again later or get data manual !")
+            print(f"[x] 登录失败，请稍后再试或手动获取数据！")
             exit()
         res = await result.json()
         userid = res.get("user", {}).get("id")
         open("userid.txt", "w").write(userid)
-        print(f"[+] login success, now run main.py !")
+        print(f"[+] 登录成功，现在运行 main.py！")
 
 
 try:
