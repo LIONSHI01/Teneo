@@ -68,7 +68,7 @@ async def countdown(t):
 # 主函数
 async def main():
     os.system("cls" if os.name == "nt" else "clear")
-    print(f"{green}Github: {red}github.com/Rambeboy{reset}")
+    print(f"{green}Github: {red}github.com/sdohuajia{reset}")
 
     if not os.path.exists("userid.txt"):
         print(f"{red}错误: {white}未找到 userid.txt 文件，请先运行 setup.py！")
