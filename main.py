@@ -15,8 +15,9 @@ yellow = Fore.LIGHTYELLOW_EX
 reset = Style.RESET_ALL
 
 class TeneoXD:
-    def __init__(self):
+    def __init__(self, proxy=None):
         self.wss_url = "wss://secure.ws.teneo.pro/websocket"
+        self.proxy = proxy  # 存储代理
 
     def log(self, msg):
         now = datetime.now().isoformat(" ").split(".")[0]
@@ -32,7 +33,8 @@ class TeneoXD:
                     self.log(f"{yellow}达到最大重试次数，请稍后再试 1")
                     return
                 async with self.ses.ws_connect(
-                    url=f"{self.wss_url}?userId={userid}&version=v0.2"
+                    url=f"{self.wss_url}?userId={userid}&version=v0.2",
+                    proxy=self.proxy  # 使用代理
                 ) as wss:
                     retry = 1
                     self.log(f"{green}连接到 {white}WebSocket {green}服务器")
@@ -65,6 +67,13 @@ async def countdown(t):
         print(f"等待 {hour}:{minute}:{seconds} ", flush=True, end="\r")
         await asyncio.sleep(1)
 
+# 读取代理文件
+def read_proxies(file_path):
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as f:
+            return f.read().strip()  # 返回代理字符串
+    return None
+
 # 主函数
 async def main():
     os.system("cls" if os.name == "nt" else "clear")
@@ -73,8 +82,16 @@ async def main():
     if not os.path.exists("userid.txt"):
         print(f"{red}错误: {white}未找到 userid.txt 文件，请先运行 setup.py！")
         exit()
-    userid = open("userid.txt").read()
-    await asyncio.create_task(TeneoXD().connect(userid=userid))
+    userid = open("userid.txt").read().strip()
+    
+    # 读取代理
+    proxy = read_proxies("proxies.txt")
+    if proxy:
+        print(f"{green}使用代理: {white}{proxy}{reset}")
+    else:
+        print(f"{red}未找到代理，直接连接！{reset}")
+
+    await asyncio.create_task(TeneoXD(proxy=proxy).connect(userid=userid))
 
 # 程序入口
 if __name__ == "__main__":
