@@ -94,6 +94,7 @@ def read_proxies(file_path):
 # 主函数
 async def main():
     os.system("cls" if os.name == "nt" else "clear")
+    print(f"{green}欢迎使用 Teneo 节点{reset}")  # 添加欢迎语
     print(f"{green}Github: {red}github.com/sdohuajia{reset}")
 
     if not os.path.exists("userid.txt"):
