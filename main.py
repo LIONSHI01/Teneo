@@ -2,7 +2,8 @@ import os
 import aiohttp
 import asyncio
 from colorama import Fore, Style
-from datetime import datetime
+from datetime import datetime, timedelta
+import random
 
 # 定义颜色
 black = Fore.LIGHTBLACK_EX
@@ -20,6 +21,8 @@ class TeneoXD:
         self.proxy = proxy  # 存储代理
         self.points_today = 0
         self.points_total = 0
+        self.countdown = "计算中..."
+        self.potential_points = 0
 
     def log(self, msg):
         now = datetime.now().isoformat(" ").split(".")[0]
@@ -28,8 +31,38 @@ class TeneoXD:
     async def display_points(self):
         """ 定期显示积分信息 """
         while True:
-            self.log(f"{green}今天的积分 : {white}{self.points_today} {magenta}| {green}总积分 : {white}{self.points_total}")
-            await asyncio.sleep(10)  # 每10秒刷新一次
+            self.log(f"{green}今天的积分 : {white}{self.points_today} {magenta}| {green}总积分 : {white}{self.points_total} {magenta}| {green}潜在积分 : {white}{self.potential_points} {magenta}| {green}倒计时 : {white}{self.countdown}")
+            await asyncio.sleep(900)  # 每15分钟刷新一次
+
+    async def update_countdown_and_points(self):
+        """ 更新倒计时和潜在积分 """
+        last_updated = datetime.now()  # 假设这是上次更新时间
+        while True:
+            next_heartbeat = last_updated + timedelta(minutes=15)
+            now = datetime.now()
+            diff = (next_heartbeat - now).total_seconds()
+
+            if diff > 0:
+                minutes = int(diff // 60)
+                seconds = int(diff % 60)
+                self.countdown = f"{minutes}分 {seconds}秒"
+
+                max_points = 25
+                time_elapsed = (now - last_updated).total_seconds() / 60
+                new_points = min(max_points, (time_elapsed / 15) * max_points)
+                new_points = round(new_points, 2)
+
+                if random.random() < 0.1:  # 10% 概率增加积分
+                    bonus = random.uniform(0, 2)
+                    new_points = min(max_points, new_points + bonus)
+                    new_points = round(new_points, 2)
+
+                self.potential_points = new_points
+            else:
+                self.countdown = "计算中..."
+                self.potential_points = 25
+
+            await asyncio.sleep(1)  # 每秒更新一次
 
     async def connect(self, userid):
         max_retry = 10  # 最大重试次数
@@ -46,9 +79,10 @@ class TeneoXD:
                 ) as wss:
                     retry = 1
                     self.log(f"{green}连接到 {white}WebSocket {green}服务器")
-                    # 启动积分显示协程
+                    # 启动积分显示和倒计时更新协程
                     asyncio.create_task(self.display_points())
-                    
+                    asyncio.create_task(self.update_countdown_and_points())
+
                     while True:
                         msg = await wss.receive_json(timeout=10)
                         point_today = msg.get("pointsToday")
