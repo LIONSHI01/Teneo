@@ -64,8 +64,8 @@ function displayHeader() {
   console.log("");
   console.log(chalk.yellow(" ============================================"));
   console.log(chalk.yellow("|                Teneo 机器人               |"));
-  console.log(chalk.yellow("|         github.com/sdohuajia              |"));
-  console.log(chalk.yellow("|        https://x.com/ferdie_jhovie        |"));
+  console.log(chalk.yellow("|         github.com/sdohuajia         |"));
+  console.log(chalk.yellow("|       https://x.com/ferdie_jhovie    |"));
   console.log(chalk.yellow(" ============================================"));
   console.log("");
   console.log(chalk.cyan(`_____________________________________________`));
