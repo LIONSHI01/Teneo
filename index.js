@@ -12,6 +12,7 @@ const rl = readline.createInterface({
   output: process.stdout
 });
 
+// 全局变量
 let sockets = [];
 let pingIntervals = [];
 let countdownIntervals = [];
@@ -25,10 +26,19 @@ let userIds = [];
 let browserIds = [];
 let proxies = [];
 
+// API 认证信息
+const authorization = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlra25uZ3JneHV4Z2pocGxicGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU0MzgxNTAsImV4cCI6MjA0MTAxNDE1MH0.DRAvf8nH1ojnJBc3rD_Nw6t1AV8X_g6gmY_HByG2Mag";
+const apikey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlra25uZ3JneHV4Z2pocGxicGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU0MzgxNTAsImV4cCI6MjA0MTAxNDE1MH0.DRAvf8nH1ojnJBc3rD_Nw6t1AV8X_g6gmY_HByG2Mag";
+
+const enableLogging = true;
+
+// 工具函数
 function loadProxies() {
   try {
     const data = fs.readFileSync('proxy.txt', 'utf8');
-    proxies = data.split('\n').map(line => line.trim().replace(/,$/, '').replace(/['"]+/g, '')).filter(line => line);
+    proxies = data.split('\n')
+      .map(line => line.trim().replace(/,$/, '').replace(/['"]+/g, ''))
+      .filter(line => line);
   } catch (err) {
     console.error('加载代理失败:', err);
   }
@@ -41,11 +51,6 @@ function normalizeProxyUrl(proxy) {
   return proxy;
 }
 
-const enableLogging = false;
-
-const authorization = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlra25uZ3JneHV4Z2pocGxicGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU0MzgxNTAsImV4cCI6MjA0MTAxNDE1MH0.DRAvf8nH1ojnJBc3rD_Nw6t1AV8X_g6gmY_HByG2Mag";
-const apikey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlra25uZ3JneHV4Z2pocGxicGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU0MzgxNTAsImV4cCI6MjA0MTAxNDE1MH0.DRAvf8nH1ojnJBc3rD_Nw6t1AV8X_g6gmY_HByG2Mag";
-
 function generateBrowserId(index) {
   return `browserId-${index}-${Math.random().toString(36).substring(2, 15)}`;
 }
@@ -53,13 +58,12 @@ function generateBrowserId(index) {
 function logToFile(message) {
   if (enableLogging) {
     fs.appendFile('error.log', `${new Date().toISOString()} - ${message}\n`, (err) => {
-      if (err) {
-        console.error('日志记录失败:', err);
-      }
+      if (err) console.error('日志记录失败:', err);
     });
   }
 }
 
+// UI 函数
 function displayHeader() {
   console.log("");
   console.log(chalk.yellow(" ============================================"));
@@ -71,6 +75,97 @@ function displayHeader() {
   console.log(chalk.cyan(`_____________________________________________`));
 }
 
+async function displayMenu() {
+  console.clear();
+  displayHeader();
+  console.log(chalk.cyan("\n请选择功能:"));
+  console.log(chalk.white("1. 运行节点"));
+  console.log(chalk.white("2. 注册账户"));
+  console.log(chalk.white("3. 退出程序\n"));
+
+  const answer = await new Promise((resolve) => {
+    rl.question(chalk.yellow("请输入选项 (1-3): "), resolve);
+  });
+
+  switch (answer.trim()) {
+    case "1":
+      console.clear();
+      displayHeader();
+      console.log(chalk.green("\n开始运行节点...\n"));
+      startNodes();
+      break;
+    case "2":
+      console.clear();
+      displayHeader();
+      await registerNewAccount();
+      break;
+    case "3":
+      console.log(chalk.yellow("\n正在退出程序..."));
+      process.exit(0);
+    default:
+      console.log(chalk.red("\n无效选项，请重新选择"));
+      setTimeout(displayMenu, 2000);
+  }
+}
+
+// 注册功能
+async function registerNewAccount() {
+  const email = await new Promise((resolve) => {
+    rl.question(chalk.cyan("请输入邮箱: "), resolve);
+  });
+  
+  const password = await new Promise((resolve) => {
+    rl.question(chalk.cyan("请输入密码: "), resolve);
+  });
+
+  const referralCode = await new Promise((resolve) => {
+    rl.question(chalk.cyan("请输入邀请码,可填我的UzPmb(直接回车跳过): "), resolve);
+  });
+
+  try {
+    const registrationData = {
+      email,
+      password
+    };
+
+    if (referralCode.trim()) {
+      registrationData.data = {
+        referral_code: referralCode.trim()
+      };
+    }
+
+    const response = await axios.post(
+      "https://ikknngrgxuxgjhplbpey.supabase.co/auth/v1/signup",
+      registrationData,
+      {
+        headers: {
+          'Authorization': authorization,
+          'apikey': apikey
+        }
+      }
+    );
+
+    console.log(chalk.green("\n注册成功！"));
+    console.log(chalk.yellow("\n请将以下信息添加到 account.js 文件中:"));
+    console.log(chalk.white(`{
+  email: "${email}",
+  password: "${password}"
+},`));
+    
+    await new Promise((resolve) => {
+      rl.question(chalk.cyan("\n按回车键返回主菜单..."), resolve);
+    });
+    displayMenu();
+  } catch (error) {
+    console.error(chalk.red("\n注册失败:"), error.response?.data || error.message);
+    await new Promise((resolve) => {
+      rl.question(chalk.cyan("\n按回车键返回主菜单..."), resolve);
+    });
+    displayMenu();
+  }
+}
+
+// 显示账户数据
 function displayAccountData(index) {
   console.log(chalk.cyan(`================= 账号 ${index + 1} =================`));
   console.log(chalk.whiteBright(`邮箱: ${accounts[index].email}`));
@@ -100,8 +195,10 @@ function logAllAccounts() {
   }
 }
 
+// WebSocket 连接管理
 async function connectWebSocket(index) {
   if (sockets[index]) return;
+  
   const version = "v0.2";
   const url = "wss://secure.ws.teneo.pro";
   const wsUrl = `${url}/websocket?userId=${encodeURIComponent(userIds[index])}&version=${encodeURIComponent(version)}&browserId=${encodeURIComponent(browserIds[index])}`;
@@ -152,6 +249,7 @@ async function connectWebSocket(index) {
   };
 }
 
+// 计时器和积分管理
 function startCountdownAndPoints(index) {
   clearInterval(countdownIntervals[index]);
   updateCountdownAndPoints(index);
@@ -203,13 +301,11 @@ async function updateCountdownAndPoints(index) {
     } else {
       countdowns[index] = "计算中，可能需要一分钟才能开始...";
       potentialPoints[index] = 25;
-
       lastUpdateds[index].calculatingTime = now;
     }
   } else {
     countdowns[index] = "计算中，可能需要一分钟才能开始...";
     potentialPoints[index] = 0;
-
     lastUpdateds[index].calculatingTime = now;
   }
 
@@ -217,6 +313,7 @@ async function updateCountdownAndPoints(index) {
   logToFile(`已更新账号 ${index + 1} 的倒计时和积分`);
 }
 
+// 用户认证
 async function getUserId(index) {
   const loginUrl = "https://ikknngrgxuxgjhplbpey.supabase.co/auth/v1/token?grant_type=password";
 
@@ -258,6 +355,7 @@ async function getUserId(index) {
   }
 }
 
+// 心跳检测
 function startPinging(index) {
   clearInterval(pingIntervals[index]);
   pingIntervals[index] = setInterval(() => {
@@ -267,6 +365,7 @@ function startPinging(index) {
   }, 30000);
 }
 
+// 重连机制
 function reconnectWebSocket(index) {
   if (sockets[index]) {
     clearInterval(pingIntervals[index]);
@@ -279,17 +378,22 @@ function reconnectWebSocket(index) {
   }, 5000);
 }
 
-displayHeader();
-loadProxies();
-
-for (let i = 0; i < accounts.length; i++) {
-  potentialPoints[i] = 0;
-  countdowns[i] = "计算中...";
-  pointsTotals[i] = 0;
-  pointsToday[i] = 0;
-  lastUpdateds[i] = null;
-  messages[i] = '';
-  userIds[i] = null;
-  browserIds[i] = null;
-  getUserId(i);
+// 启动节点
+function startNodes() {
+  loadProxies();
+  for (let i = 0; i < accounts.length; i++) {
+    potentialPoints[i] = 0;
+    countdowns[i] = "计算中...";
+    pointsTotals[i] = 0;
+    pointsToday[i] = 0;
+    lastUpdateds[i] = null;
+    messages[i] = '';
+    userIds[i] = null;
+    browserIds[i] = null;
+    getUserId(i);
+  }
 }
+
+// 启动程序
+displayHeader();
+displayMenu();
