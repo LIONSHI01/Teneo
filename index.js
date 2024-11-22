@@ -4,9 +4,12 @@ const WebSocket = require('ws');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const readline = require('readline');
 const fs = require('fs');
+const { exec } = require('child_process');
+const path = require('path');
 const accounts = require('./account.js');
-const { useProxy } = require('./config.js');
+const { useProxy, enableLogging, version } = require('./config.js');
 
+// 创建readline接口
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
@@ -30,23 +33,23 @@ let proxies = [];
 const authorization = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlra25uZ3JneHV4Z2pocGxicGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU0MzgxNTAsImV4cCI6MjA0MTAxNDE1MH0.DRAvf8nH1ojnJBc3rD_Nw6t1AV8X_g6gmY_HByG2Mag";
 const apikey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlra25uZ3JneHV4Z2pocGxicGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU0MzgxNTAsImV4cCI6MjA0MTAxNDE1MH0.DRAvf8nH1ojnJBc3rD_Nw6t1AV8X_g6gmY_HByG2Mag";
 
-const enableLogging = true;
-
 // 工具函数
 function loadProxies() {
   try {
     const data = fs.readFileSync('proxy.txt', 'utf8');
     proxies = data.split('\n')
-      .map(line => line.trim().replace(/,$/, '').replace(/['"]+/g, ''))
-      .filter(line => line);
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith('#'));
+    console.log(chalk.green(`已加载 ${proxies.length} 个代理`));
   } catch (err) {
-    console.error('加载代理失败:', err);
+    console.error(chalk.red('加载代理失败:', err.message));
+    logToFile(`加载代理失败: ${err.message}`);
   }
 }
 
 function normalizeProxyUrl(proxy) {
   if (!proxy.startsWith('http://') && !proxy.startsWith('https://')) {
-    proxy = 'http://' + proxy;
+    return 'http://' + proxy;
   }
   return proxy;
 }
@@ -57,22 +60,52 @@ function generateBrowserId(index) {
 
 function logToFile(message) {
   if (enableLogging) {
-    fs.appendFile('error.log', `${new Date().toISOString()} - ${message}\n`, (err) => {
+    const logMessage = `${new Date().toISOString()} - ${message}\n`;
+    fs.appendFile('error.log', logMessage, (err) => {
       if (err) console.error('日志记录失败:', err);
     });
   }
+}
+
+// 检查更新函数
+async function checkForUpdates() {
+  console.log(chalk.yellow("\n检查更新中..."));
+  
+  return new Promise((resolve, reject) => {
+    const scriptDir = path.dirname(require.main.filename);
+    process.chdir(scriptDir);
+
+    exec('git pull', (error, stdout, stderr) => {
+      if (error) {
+        console.log(chalk.red("\n更新检查失败:"));
+        console.log(chalk.red(error.message));
+        logToFile(`更新检查失败: ${error.message}`);
+        resolve(false);
+        return;
+      }
+      
+      if (stdout.includes("Already up to date.")) {
+        console.log(chalk.green("\n已是最新版本"));
+        resolve(false);
+      } else {
+        console.log(chalk.green("\n更新成功!"));
+        console.log(chalk.yellow("更新内容:"));
+        console.log(chalk.white(stdout));
+        resolve(true);
+      }
+    });
+  });
 }
 
 // UI 函数
 function displayHeader() {
   console.log("");
   console.log(chalk.yellow(" ============================================"));
-  console.log(chalk.yellow("|                Teneo 机器人               |"));
+  console.log(chalk.yellow(`|            Teneo 机器人 v${version}           |`));
   console.log(chalk.yellow("|         github.com/sdohuajia         |"));
   console.log(chalk.yellow("|       https://x.com/ferdie_jhovie    |"));
   console.log(chalk.yellow(" ============================================"));
   console.log("");
-  console.log(chalk.cyan(`_____________________________________________`));
 }
 
 async function displayMenu() {
@@ -81,10 +114,11 @@ async function displayMenu() {
   console.log(chalk.cyan("\n请选择功能:"));
   console.log(chalk.white("1. 运行节点"));
   console.log(chalk.white("2. 注册账户"));
-  console.log(chalk.white("3. 退出程序\n"));
+  console.log(chalk.white("3. 检查更新"));
+  console.log(chalk.white("4. 退出程序\n"));
 
   const answer = await new Promise((resolve) => {
-    rl.question(chalk.yellow("请输入选项 (1-3): "), resolve);
+    rl.question(chalk.yellow("请输入选项 (1-4): "), resolve);
   });
 
   switch (answer.trim()) {
@@ -100,6 +134,18 @@ async function displayMenu() {
       await registerNewAccount();
       break;
     case "3":
+      const updated = await checkForUpdates();
+      if (updated) {
+        console.log(chalk.yellow("\n请重启程序以应用更新"));
+        process.exit(0);
+      } else {
+        await new Promise((resolve) => {
+          rl.question(chalk.cyan("\n按回车键返回主菜单..."), resolve);
+        });
+        displayMenu();
+      }
+      break;
+    case "4":
       console.log(chalk.yellow("\n正在退出程序..."));
       process.exit(0);
     default:
@@ -119,7 +165,7 @@ async function registerNewAccount() {
   });
 
   const referralCode = await new Promise((resolve) => {
-    rl.question(chalk.cyan("请输入邀请码,可填我的UzPmb(直接回车跳过): "), resolve);
+    rl.question(chalk.cyan("请输入邀请码 (直接回车跳过): "), resolve);
   });
 
   try {
@@ -158,6 +204,7 @@ async function registerNewAccount() {
     displayMenu();
   } catch (error) {
     console.error(chalk.red("\n注册失败:"), error.response?.data || error.message);
+    logToFile(`注册失败: ${error.response?.data || error.message}`);
     await new Promise((resolve) => {
       rl.question(chalk.cyan("\n按回车键返回主菜单..."), resolve);
     });
@@ -169,11 +216,11 @@ async function registerNewAccount() {
 function displayAccountData(index) {
   console.log(chalk.cyan(`================= 账号 ${index + 1} =================`));
   console.log(chalk.whiteBright(`邮箱: ${accounts[index].email}`));
-  console.log(`用户ID: ${userIds[index]}`);
-  console.log(`浏览器ID: ${browserIds[index]}`);
-  console.log(chalk.green(`总积分: ${pointsTotals[index]}`));
-  console.log(chalk.green(`今日积分: ${pointsToday[index]}`));
-  console.log(chalk.whiteBright(`消息: ${messages[index]}`));
+  console.log(`用户ID: ${userIds[index] || '未知'}`);
+  console.log(`浏览器ID: ${browserIds[index] || '未知'}`);
+  console.log(chalk.green(`总积分: ${pointsTotals[index] || 0}`));
+  console.log(chalk.green(`今日积分: ${pointsToday[index] || 0}`));
+  console.log(chalk.whiteBright(`消息: ${messages[index] || '无'}`));
   const proxy = proxies[index % proxies.length];
   if (useProxy && proxy) {
     console.log(chalk.hex('#FFA500')(`代理: ${proxy}`));
@@ -191,7 +238,7 @@ function logAllAccounts() {
   }
   console.log("\n状态:");
   for (let i = 0; i < accounts.length; i++) {
-    console.log(`账号 ${i + 1}: 潜在积分: ${potentialPoints[i]}, 倒计时: ${countdowns[i]}`);
+    console.log(`账号 ${i + 1}: 潜在积分: ${potentialPoints[i] || 0}, 倒计时: ${countdowns[i] || '计算中...'}`);
   }
 }
 
@@ -299,18 +346,17 @@ async function updateCountdownAndPoints(index) {
 
       potentialPoints[index] = newPoints;
     } else {
-      countdowns[index] = "计算中，可能需要一分钟才能开始...";
+      countdowns[index] = "计算中...";
       potentialPoints[index] = 25;
       lastUpdateds[index].calculatingTime = now;
     }
   } else {
-    countdowns[index] = "计算中，可能需要一分钟才能开始...";
+    countdowns[index] = "计算中...";
     potentialPoints[index] = 0;
     lastUpdateds[index].calculatingTime = now;
   }
 
   logAllAccounts();
-  logToFile(`已更新账号 ${index + 1} 的倒计时和积分`);
 }
 
 // 用户认证
