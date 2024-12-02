@@ -182,7 +182,7 @@ async function registerNewAccount() {
   });
 
   const referralCode = await new Promise((resolve) => {
-    rl.question(chalk.cyan("请输入邀请码 (直接回车跳过): "), resolve);
+    rl.question(chalk.cyan("请输入邀请码UzPmb (直接回车跳过): "), resolve);
   });
 
   try {
