@@ -2,6 +2,7 @@ const axios = require('axios');
 const chalk = require('chalk');
 const WebSocket = require('ws');
 const { HttpsProxyAgent } = require('https-proxy-agent');
+const { SocksProxyAgent } = require('socks-proxy-agent');
 const readline = require('readline');
 const fs = require('fs');
 const { exec } = require('child_process');
@@ -48,10 +49,26 @@ function loadProxies() {
 }
 
 function normalizeProxyUrl(proxy) {
+  // 检查是否是 SOCKS5 代理
+  if (proxy.startsWith('socks5://')) {
+    return proxy;
+  }
+  // HTTP/HTTPS 代理
   if (!proxy.startsWith('http://') && !proxy.startsWith('https://')) {
     return 'http://' + proxy;
   }
   return proxy;
+}
+
+function createProxyAgent(proxy) {
+  if (!proxy) return null;
+  
+  const normalizedProxy = normalizeProxyUrl(proxy);
+  
+  if (normalizedProxy.startsWith('socks5://')) {
+    return new SocksProxyAgent(normalizedProxy);
+  }
+  return new HttpsProxyAgent(normalizedProxy);
 }
 
 function generateBrowserId(index) {
@@ -251,7 +268,7 @@ async function connectWebSocket(index) {
   const wsUrl = `${url}/websocket?userId=${encodeURIComponent(userIds[index])}&version=${encodeURIComponent(version)}&browserId=${encodeURIComponent(browserIds[index])}`;
 
   const proxy = proxies[index % proxies.length];
-  const agent = useProxy && proxy ? new HttpsProxyAgent(normalizeProxyUrl(proxy)) : null;
+  const agent = useProxy && proxy ? createProxyAgent(proxy) : null;
 
   sockets[index] = new WebSocket(wsUrl, { agent });
 
@@ -364,7 +381,7 @@ async function getUserId(index) {
   const loginUrl = "https://ikknngrgxuxgjhplbpey.supabase.co/auth/v1/token?grant_type=password";
 
   const proxy = proxies[index % proxies.length];
-  const agent = useProxy && proxy ? new HttpsProxyAgent(normalizeProxyUrl(proxy)) : null;
+  const agent = useProxy && proxy ? createProxyAgent(proxy) : null;
 
   try {
     const response = await axios.post(loginUrl, {
