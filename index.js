@@ -40,6 +40,7 @@ function loadAccounts() {
     }).filter(account => account !== null);
   } catch (err) {
     console.error('加载账户失败:', err);
+    process.exit(1);
   }
 }
 
@@ -54,6 +55,7 @@ function loadProxies() {
     proxies = data.split('\n').map(line => line.trim()).filter(line => line);
   } catch (err) {
     console.error('加载代理失败:', err);
+    process.exit(1);
   }
 }
 
@@ -179,6 +181,11 @@ function handleUserInput() {
       currentAccountIndex = (currentAccountIndex + 1) % accounts.length;
       console.log(`切换到账户索引: ${currentAccountIndex}`);
       displayAccountData(currentAccountIndex);
+    }
+
+    if (key.ctrl && key.name === 'c') {
+      console.log("\n程序已退出");
+      process.exit(); // 退出程序
     }
   });
 
@@ -379,12 +386,6 @@ function stopPinging(index) {
     clearInterval(pingIntervals[index]);
     pingIntervals[index] = null;
   }
-}
-
-function restartAccountProcess(index) {
-  disconnectWebSocket(index);
-  connectWebSocket(index);
-  console.log(`WebSocket 重启完成，索引: ${index}`);
 }
 
 async function getUserId(index) {
