@@ -21,11 +21,12 @@ let proxies = [];
 let accessTokens = [];
 let accounts = [];
 let useProxy = false;
+let enableAutoRetry = false;
 let currentAccountIndex = 0;
 
 function loadAccounts() {
   if (!fs.existsSync('account.txt')) {
-    console.error('account.txt 文件未找到，请添加包含账户数据的文件。');
+    console.error('未找到 account.txt 文件。请添加包含账户数据的文件。');
     process.exit(1);
   }
 
@@ -40,13 +41,12 @@ function loadAccounts() {
     }).filter(account => account !== null);
   } catch (err) {
     console.error('加载账户失败:', err);
-    process.exit(1);
   }
 }
 
 function loadProxies() {
   if (!fs.existsSync('proxy.txt')) {
-    console.error('proxy.txt 文件未找到，请添加包含代理数据的文件。');
+    console.error('未找到 proxy.txt 文件。请添加包含代理数据的文件。');
     process.exit(1);
   }
 
@@ -55,7 +55,6 @@ function loadProxies() {
     proxies = data.split('\n').map(line => line.trim()).filter(line => line);
   } catch (err) {
     console.error('加载代理失败:', err);
-    process.exit(1);
   }
 }
 
@@ -82,19 +81,35 @@ function promptUseProxy() {
   });
 }
 
+function promptEnableAutoRetry() {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+
+    rl.question('是否启用账户错误自动重试？(y/n): ', (answer) => {
+      enableAutoRetry = answer.toLowerCase() === 'y';
+      rl.close();
+      resolve();
+    });
+  });
+}
+
 async function initialize() {
   loadAccounts();
   loadProxies();
   await promptUseProxy();
+  await promptEnableAutoRetry();
 
   if (useProxy && proxies.length < accounts.length) {
-    console.error('代理数量不足，请添加更多代理。');
+    console.error('代理数量不足以支持所有账户。请添加更多代理。');
     process.exit(1);
   }
 
   for (let i = 0; i < accounts.length; i++) {
     potentialPoints[i] = 0;
-    countdowns[i] = "正在计算...";
+    countdowns[i] = "计算中...";
     pointsTotals[i] = 0;
     pointsToday[i] = 0;
     lastUpdateds[i] = null;
@@ -117,7 +132,7 @@ function displayHeader() {
   const width = process.stdout.columns;
   const headerLines = [
     "<|============================================|>",
-    "                  Teneo Bot                   ",
+    "                  Teneo 机器人                  ",
     "<|============================================|>"
   ];
 
@@ -127,7 +142,7 @@ function displayHeader() {
     console.log(chalk.green(' '.repeat(padding) + line));
   });
   console.log("");
-  const instructions = "使用 'A' 切换到上一个账户，'D' 切换到下一个账户，'ctrl+C' 退出程序。";
+  const instructions = "使用 'A' 切换到上一个账户，'D' 切换到下一个账户，'C' 退出。";
   const instructionsPadding = Math.max(0, Math.floor((width - instructions.length) / 2));
   console.log(chalk.cyan(' '.repeat(instructionsPadding) + instructions));
 }
@@ -181,22 +196,17 @@ function handleUserInput() {
       currentAccountIndex = (currentAccountIndex + 1) % accounts.length;
       console.log(`切换到账户索引: ${currentAccountIndex}`);
       displayAccountData(currentAccountIndex);
+    } else if (key && key.name === 'c') {
+      console.log('正在退出脚本...');
+      process.exit();
     }
-
-    if (key.ctrl && key.name === 'c') {
-      console.log("\n程序已退出");
-      process.exit(); // 退出程序
+    if (key && key.ctrl && key.name === 'c') {
+      process.stdin.pause();
     }
   });
 
   process.stdin.setRawMode(true);
   process.stdin.resume();
-
-  // 监听 ctrl+C 退出程序
-  process.on('SIGINT', () => {
-    console.log('\n程序已退出');
-    process.exit();
-  });
 }
 
 async function connectWebSocket(index) {
@@ -231,7 +241,7 @@ async function connectWebSocket(index) {
     }
 
     if (data.message === "Pulse from server") {
-      console.log(`从服务器接收到心跳，账户 ${index + 1} 开始ping...`);
+      console.log(`账户 ${index + 1} 收到服务器脉冲。开始 ping...`);
       setTimeout(() => {
         startPinging(index);
       }, 10000);
@@ -239,12 +249,12 @@ async function connectWebSocket(index) {
   };
 
   sockets[index].onclose = () => {
-    console.log(`账户 ${index + 1} 已断开`);
+    console.log(`账户 ${index + 1} 已断开连接`);
     reconnectWebSocket(index);
   };
 
   sockets[index].onerror = (error) => {
-    console.error(`WebSocket 账户 ${index + 1} 错误:`, error);
+    console.error(`账户 ${index + 1} 的 WebSocket 错误:`, error);
   };
 }
 
@@ -283,7 +293,7 @@ async function reconnectWebSocket(index) {
     }
 
     if (data.message === "Pulse from server") {
-      console.log(`从服务器接收到心跳，账户 ${index + 1} 开始ping...`);
+      console.log(`账户 ${index + 1} 收到服务器脉冲。开始 ping...`);
       setTimeout(() => {
         startPinging(index);
       }, 10000);
@@ -291,14 +301,14 @@ async function reconnectWebSocket(index) {
   };
 
   sockets[index].onclose = () => {
-    console.log(`账户 ${index + 1} 再次断开`);
+    console.log(`账户 ${index + 1} 再次断开连接`);
     setTimeout(() => {
       reconnectWebSocket(index);
     }, 5000);
   };
 
   sockets[index].onerror = (error) => {
-    console.error(`WebSocket 账户 ${index + 1} 错误:`, error);
+    console.error(`账户 ${index + 1} 的 WebSocket 错误:`, error);
   };
 }
 
@@ -316,7 +326,7 @@ async function updateCountdownAndPoints(index) {
     lastUpdateds[index] = {};
   }
 
-  if (countdowns[index] === "正在计算...") {
+  if (countdowns[index] === "计算中...") {
     const lastCalculatingTime = lastUpdateds[index].calculatingTime || now;
     const calculatingDuration = now.getTime() - lastCalculatingTime.getTime();
 
@@ -334,7 +344,7 @@ async function updateCountdownAndPoints(index) {
     if (diff > 0) {
       const minutes = Math.floor(diff / 60000);
       const seconds = Math.floor((diff % 60000) / 1000);
-      countdowns[index] = `${minutes}分 ${seconds}秒`;
+      countdowns[index] = `${minutes} 分钟 ${seconds} 秒`;
 
       const maxPoints = 25;
       const timeElapsed = now.getTime() - new Date(lastUpdateds[index]).getTime();
@@ -350,13 +360,13 @@ async function updateCountdownAndPoints(index) {
 
       potentialPoints[index] = newPoints;
     } else {
-      countdowns[index] = "正在计算，可能需要一段时间才会开始...";
+      countdowns[index] = "计算中，可能需要一分钟才能开始...";
       potentialPoints[index] = 25;
 
       lastUpdateds[index].calculatingTime = now;
     }
   } else {
-    countdowns[index] = "正在计算，可能需要一段时间才会开始...";
+    countdowns[index] = "计算中，可能需要一分钟才能开始...";
     potentialPoints[index] = 0;
 
     lastUpdateds[index].calculatingTime = now;
@@ -388,6 +398,12 @@ function stopPinging(index) {
   }
 }
 
+function restartAccountProcess(index) {
+  disconnectWebSocket(index);
+  connectWebSocket(index);
+  console.log(`WebSocket 已重启，索引: ${index}`);
+}
+
 async function getUserId(index) {
   const loginUrl = "https://auth.teneo.pro/api/login";
 
@@ -396,17 +412,29 @@ async function getUserId(index) {
 
   try {
     const response = await axios.post(loginUrl, {
-      email: accounts[index].email,
-      password: accounts[index].password
-    }, {
-      httpsAgent: agent,
-      headers: {
-        'Authorization': `Bearer ${accessTokens[index]}`,
-        'Content-Type': 'application/json',
-        'authority': 'auth.teneo.pro',
-        'x-api-key': 'OwAG3kib1ivOJG4Y0OCZ8lJETa6ypvsDtGmdhcjA'
-      }
-    });
+    email: accounts[index].email,
+    password: accounts[index].password
+  }, {
+    httpsAgent: agent,
+    headers: {
+      'Authorization': `Bearer ${accessTokens[index]}`,
+      'Content-Type': 'application/json',
+      'authority': 'auth.teneo.pro',
+      'x-api-key': 'OwAG3kib1ivOJG4Y0OCZ8lJETa6ypvsDtGmdhcjB',
+      'accept': 'application/json, text/plain, */*',
+      'accept-encoding': 'gzip, deflate, br, zstd',
+      'accept-language': 'en-US,en;q=0.9,id;q=0.8',
+      'origin': 'https://dashboard.teneo.pro',
+      'referer': 'https://dashboard.teneo.pro/',
+      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36',
+      'sec-fetch-dest': 'empty',
+      'sec-fetch-mode': 'cors',
+      'sec-fetch-site': 'same-site',
+      'sec-ch-ua': '"Not A(Brand";v="8", "Chromium";v="132", "Google Chrome";v="132"',
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': '"Windows"'
+    }
+  });
 
     const { user, access_token } = response.data;
     userIds[index] = user.id;
@@ -429,7 +457,12 @@ async function getUserId(index) {
       displayAccountData(index);
     }
 
-    console.error(`账户 ${index + 1} 错误:`, errorMessage);
+    console.error(`账户 ${index + 1} 的错误:`, errorMessage);
+
+    if (enableAutoRetry) {
+      console.log(`3 分钟后重试账户 ${index + 1}...`);
+      setTimeout(() => getUserId(index), 180000);
+    }
   }
 }
 
