@@ -1,10 +1,10 @@
-const axios = require('axios');
-const chalk = require('chalk');
-const WebSocket = require('ws');
-const { HttpsProxyAgent } = require('https-proxy-agent');
-const fs = require('fs');
-const readline = require('readline');
-const keypress = require('keypress');
+const axios = require("axios");
+const chalk = require("chalk");
+const WebSocket = require("ws");
+const { HttpsProxyAgent } = require("https-proxy-agent");
+const fs = require("fs");
+const readline = require("readline");
+const keypress = require("keypress");
 
 let sockets = [];
 let pingIntervals = [];
@@ -21,46 +21,52 @@ let proxies = [];
 let accessTokens = [];
 let accounts = [];
 let useProxy = false;
-let enableAutoRetry = false;
+let enableAutoRetry = true;
 let currentAccountIndex = 0;
 
 function loadAccounts() {
-  if (!fs.existsSync('account.txt')) {
-    console.error('未找到 account.txt 文件。请添加包含账户数据的文件。');
+  if (!fs.existsSync("account.txt")) {
+    console.error("未找到 account.txt 文件。请添加包含账户数据的文件。");
     process.exit(1);
   }
 
   try {
-    const data = fs.readFileSync('account.txt', 'utf8');
-    accounts = data.split('\n').map(line => {
-      const [email, password] = line.split(',');
-      if (email && password) {
-        return { email: email.trim(), password: password.trim() };
-      }
-      return null;
-    }).filter(account => account !== null);
+    const data = fs.readFileSync("account.txt", "utf8");
+    accounts = data
+      .split("\n")
+      .map((line) => {
+        const [email, password] = line.split(",");
+        if (email && password) {
+          return { email: email.trim(), password: password.trim() };
+        }
+        return null;
+      })
+      .filter((account) => account !== null);
   } catch (err) {
-    console.error('加载账户失败:', err);
+    console.error("加载账户失败:", err);
   }
 }
 
 function loadProxies() {
-  if (!fs.existsSync('proxy.txt')) {
-    console.error('未找到 proxy.txt 文件。请添加包含代理数据的文件。');
+  if (!fs.existsSync("proxy.txt")) {
+    console.error("未找到 proxy.txt 文件。请添加包含代理数据的文件。");
     process.exit(1);
   }
 
   try {
-    const data = fs.readFileSync('proxy.txt', 'utf8');
-    proxies = data.split('\n').map(line => line.trim()).filter(line => line);
+    const data = fs.readFileSync("proxy.txt", "utf8");
+    proxies = data
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line);
   } catch (err) {
-    console.error('加载代理失败:', err);
+    console.error("加载代理失败:", err);
   }
 }
 
 function normalizeProxyUrl(proxy) {
-  if (!proxy.startsWith('http://') && !proxy.startsWith('https://')) {
-    proxy = 'http://' + proxy;
+  if (!proxy.startsWith("http://") && !proxy.startsWith("https://")) {
+    proxy = "http://" + proxy;
   }
   return proxy;
 }
@@ -70,11 +76,11 @@ function promptUseProxy() {
     displayHeader();
     const rl = readline.createInterface({
       input: process.stdin,
-      output: process.stdout
+      output: process.stdout,
     });
 
-    rl.question('是否使用代理？(y/n): ', (answer) => {
-      useProxy = answer.toLowerCase() === 'y';
+    rl.question("是否使用代理？(y/n): ", (answer) => {
+      useProxy = answer.toLowerCase() === "y";
       rl.close();
       resolve();
     });
@@ -85,11 +91,11 @@ function promptEnableAutoRetry() {
   return new Promise((resolve) => {
     const rl = readline.createInterface({
       input: process.stdin,
-      output: process.stdout
+      output: process.stdout,
     });
 
-    rl.question('是否启用账户错误自动重试？(y/n): ', (answer) => {
-      enableAutoRetry = answer.toLowerCase() === 'y';
+    rl.question("是否启用账户错误自动重试？(y/n): ", (answer) => {
+      enableAutoRetry = answer.toLowerCase() === "y";
       rl.close();
       resolve();
     });
@@ -99,11 +105,11 @@ function promptEnableAutoRetry() {
 async function initialize() {
   loadAccounts();
   loadProxies();
-  await promptUseProxy();
-  await promptEnableAutoRetry();
+  // await promptUseProxy();
+  // await promptEnableAutoRetry();
 
   if (useProxy && proxies.length < accounts.length) {
-    console.error('代理数量不足以支持所有账户。请添加更多代理。');
+    console.error("代理数量不足以支持所有账户。请添加更多代理。");
     process.exit(1);
   }
 
@@ -113,7 +119,7 @@ async function initialize() {
     pointsTotals[i] = 0;
     pointsToday[i] = 0;
     lastUpdateds[i] = null;
-    messages[i] = '';
+    messages[i] = "";
     userIds[i] = null;
     browserIds[i] = null;
     accessTokens[i] = null;
@@ -133,18 +139,22 @@ function displayHeader() {
   const headerLines = [
     "<|============================================|>",
     "                  Teneo 机器人                  ",
-    "<|============================================|>"
+    "<|============================================|>",
   ];
 
   console.log("");
-  headerLines.forEach(line => {
+  headerLines.forEach((line) => {
     const padding = Math.max(0, Math.floor((width - line.length) / 2));
-    console.log(chalk.green(' '.repeat(padding) + line));
+    console.log(chalk.green(" ".repeat(padding) + line));
   });
   console.log("");
-  const instructions = "使用 'A' 切换到上一个账户，'D' 切换到下一个账户，'C' 退出。";
-  const instructionsPadding = Math.max(0, Math.floor((width - instructions.length) / 2));
-  console.log(chalk.cyan(' '.repeat(instructionsPadding) + instructions));
+  const instructions =
+    "使用 'A' 切换到上一个账户，'D' 切换到下一个账户，'C' 退出。";
+  const instructionsPadding = Math.max(
+    0,
+    Math.floor((width - instructions.length) / 2)
+  );
+  console.log(chalk.cyan(" ".repeat(instructionsPadding) + instructions));
 }
 
 function displayAccountData(index) {
@@ -152,12 +162,12 @@ function displayAccountData(index) {
   displayHeader();
 
   const width = process.stdout.columns;
-  const separatorLine = '_'.repeat(width);
+  const separatorLine = "_".repeat(width);
   const accountHeader = `账户 ${index + 1}`;
   const padding = Math.max(0, Math.floor((width - accountHeader.length) / 2));
 
   console.log(chalk.cyan(separatorLine));
-  console.log(chalk.cyan(' '.repeat(padding) + chalk.bold(accountHeader)));
+  console.log(chalk.cyan(" ".repeat(padding) + chalk.bold(accountHeader)));
   console.log(chalk.cyan(separatorLine));
 
   console.log(chalk.whiteBright(`邮箱: ${accounts[index].email}`));
@@ -169,9 +179,9 @@ function displayAccountData(index) {
 
   const proxy = proxies[index % proxies.length];
   if (useProxy && proxy) {
-    console.log(chalk.hex('#FFA500')(`代理: ${proxy}`));
+    console.log(chalk.hex("#FFA500")(`代理: ${proxy}`));
   } else {
-    console.log(chalk.hex('#FFA500')(`代理: 未使用代理`));
+    console.log(chalk.hex("#FFA500")(`代理: 未使用代理`));
   }
 
   console.log(chalk.cyan(separatorLine));
@@ -180,27 +190,32 @@ function displayAccountData(index) {
   if (messages[index].startsWith("错误:")) {
     console.log(chalk.red(`账户 ${index + 1}: ${messages[index]}`));
   } else {
-    console.log(`账户 ${index + 1}: 潜在积分: ${potentialPoints[index]}, 倒计时: ${countdowns[index]}`);
+    console.log(
+      `账户 ${index + 1}: 潜在积分: ${potentialPoints[index]}, 倒计时: ${
+        countdowns[index]
+      }`
+    );
   }
 }
 
 function handleUserInput() {
   keypress(process.stdin);
 
-  process.stdin.on('keypress', (ch, key) => {
-    if (key && key.name === 'a') {
-      currentAccountIndex = (currentAccountIndex - 1 + accounts.length) % accounts.length;
+  process.stdin.on("keypress", (ch, key) => {
+    if (key && key.name === "a") {
+      currentAccountIndex =
+        (currentAccountIndex - 1 + accounts.length) % accounts.length;
       console.log(`切换到账户索引: ${currentAccountIndex}`);
       displayAccountData(currentAccountIndex);
-    } else if (key && key.name === 'd') {
+    } else if (key && key.name === "d") {
       currentAccountIndex = (currentAccountIndex + 1) % accounts.length;
       console.log(`切换到账户索引: ${currentAccountIndex}`);
       displayAccountData(currentAccountIndex);
-    } else if (key && key.name === 'c') {
-      console.log('正在退出脚本...');
+    } else if (key && key.name === "c") {
+      console.log("正在退出脚本...");
       process.exit();
     }
-    if (key && key.ctrl && key.name === 'c') {
+    if (key && key.ctrl && key.name === "c") {
       process.stdin.pause();
     }
   });
@@ -213,10 +228,13 @@ async function connectWebSocket(index) {
   if (sockets[index]) return;
   const version = "v0.2";
   const url = "wss://secure.ws.teneo.pro";
-  const wsUrl = `${url}/websocket?accessToken=${encodeURIComponent(accessTokens[index])}&version=${encodeURIComponent(version)}`;
+  const wsUrl = `${url}/websocket?accessToken=${encodeURIComponent(
+    accessTokens[index]
+  )}&version=${encodeURIComponent(version)}`;
 
   const proxy = proxies[index % proxies.length];
-  const agent = useProxy && proxy ? new HttpsProxyAgent(normalizeProxyUrl(proxy)) : null;
+  const agent =
+    useProxy && proxy ? new HttpsProxyAgent(normalizeProxyUrl(proxy)) : null;
 
   sockets[index] = new WebSocket(wsUrl, { agent });
 
@@ -261,10 +279,13 @@ async function connectWebSocket(index) {
 async function reconnectWebSocket(index) {
   const version = "v0.2";
   const url = "wss://secure.ws.teneo.pro";
-  const wsUrl = `${url}/websocket?accessToken=${encodeURIComponent(accessTokens[index])}&version=${encodeURIComponent(version)}`;
+  const wsUrl = `${url}/websocket?accessToken=${encodeURIComponent(
+    accessTokens[index]
+  )}&version=${encodeURIComponent(version)}`;
 
   const proxy = proxies[index % proxies.length];
-  const agent = useProxy && proxy ? new HttpsProxyAgent(normalizeProxyUrl(proxy)) : null;
+  const agent =
+    useProxy && proxy ? new HttpsProxyAgent(normalizeProxyUrl(proxy)) : null;
 
   if (sockets[index]) {
     sockets[index].removeAllListeners();
@@ -315,7 +336,10 @@ async function reconnectWebSocket(index) {
 function startCountdownAndPoints(index) {
   clearInterval(countdownIntervals[index]);
   updateCountdownAndPoints(index);
-  countdownIntervals[index] = setInterval(() => updateCountdownAndPoints(index), 1000);
+  countdownIntervals[index] = setInterval(
+    () => updateCountdownAndPoints(index),
+    1000
+  );
 }
 
 async function updateCountdownAndPoints(index) {
@@ -347,9 +371,13 @@ async function updateCountdownAndPoints(index) {
       countdowns[index] = `${minutes} 分钟 ${seconds} 秒`;
 
       const maxPoints = 25;
-      const timeElapsed = now.getTime() - new Date(lastUpdateds[index]).getTime();
+      const timeElapsed =
+        now.getTime() - new Date(lastUpdateds[index]).getTime();
       const timeElapsedMinutes = timeElapsed / (60 * 1000);
-      let newPoints = Math.min(maxPoints, (timeElapsedMinutes / 15) * maxPoints);
+      let newPoints = Math.min(
+        maxPoints,
+        (timeElapsedMinutes / 15) * maxPoints
+      );
       newPoints = parseFloat(newPoints.toFixed(2));
 
       if (Math.random() < 0.1) {
@@ -381,7 +409,10 @@ function startPinging(index) {
   pingIntervals[index] = setInterval(async () => {
     if (sockets[index] && sockets[index].readyState === WebSocket.OPEN) {
       const proxy = proxies[index % proxies.length];
-      const agent = useProxy && proxy ? new HttpsProxyAgent(normalizeProxyUrl(proxy)) : null;
+      const agent =
+        useProxy && proxy
+          ? new HttpsProxyAgent(normalizeProxyUrl(proxy))
+          : null;
 
       sockets[index].send(JSON.stringify({ type: "PING" }), { agent });
       if (index === currentAccountIndex) {
@@ -408,33 +439,40 @@ async function getUserId(index) {
   const loginUrl = "https://auth.teneo.pro/api/login";
 
   const proxy = proxies[index % proxies.length];
-  const agent = useProxy && proxy ? new HttpsProxyAgent(normalizeProxyUrl(proxy)) : null;
+  const agent =
+    useProxy && proxy ? new HttpsProxyAgent(normalizeProxyUrl(proxy)) : null;
 
   try {
-    const response = await axios.post(loginUrl, {
-    email: accounts[index].email,
-    password: accounts[index].password
-  }, {
-    httpsAgent: agent,
-    headers: {
-      'Authorization': `Bearer ${accessTokens[index]}`,
-      'Content-Type': 'application/json',
-      'authority': 'auth.teneo.pro',
-      'x-api-key': 'OwAG3kib1ivOJG4Y0OCZ8lJETa6ypvsDtGmdhcjB',
-      'accept': 'application/json, text/plain, */*',
-      'accept-encoding': 'gzip, deflate, br, zstd',
-      'accept-language': 'en-US,en;q=0.9,id;q=0.8',
-      'origin': 'https://dashboard.teneo.pro',
-      'referer': 'https://dashboard.teneo.pro/',
-      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36',
-      'sec-fetch-dest': 'empty',
-      'sec-fetch-mode': 'cors',
-      'sec-fetch-site': 'same-site',
-      'sec-ch-ua': '"Not A(Brand";v="8", "Chromium";v="132", "Google Chrome";v="132"',
-      'sec-ch-ua-mobile': '?0',
-      'sec-ch-ua-platform': '"Windows"'
-    }
-  });
+    const response = await axios.post(
+      loginUrl,
+      {
+        email: accounts[index].email,
+        password: accounts[index].password,
+      },
+      {
+        httpsAgent: agent,
+        headers: {
+          Authorization: `Bearer ${accessTokens[index]}`,
+          "Content-Type": "application/json",
+          authority: "auth.teneo.pro",
+          "x-api-key": "OwAG3kib1ivOJG4Y0OCZ8lJETa6ypvsDtGmdhcjB",
+          accept: "application/json, text/plain, */*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "accept-language": "en-US,en;q=0.9,id;q=0.8",
+          origin: "https://dashboard.teneo.pro",
+          referer: "https://dashboard.teneo.pro/",
+          "user-agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+          "sec-fetch-dest": "empty",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-site": "same-site",
+          "sec-ch-ua":
+            '"Not A(Brand";v="8", "Chromium";v="132", "Google Chrome";v="132"',
+          "sec-ch-ua-mobile": "?0",
+          "sec-ch-ua-platform": '"Windows"',
+        },
+      }
+    );
 
     const { user, access_token } = response.data;
     userIds[index] = user.id;
@@ -450,7 +488,9 @@ async function getUserId(index) {
     startCountdownAndPoints(index);
     await connectWebSocket(index);
   } catch (error) {
-    const errorMessage = error.response ? error.response.data.message : error.message;
+    const errorMessage = error.response
+      ? error.response.data.message
+      : error.message;
     messages[index] = `错误: ${errorMessage}`;
 
     if (index === currentAccountIndex) {
