@@ -127,7 +127,7 @@ async function initialize() {
   }
 
   displayAccountData(currentAccountIndex);
-  handleUserInput();
+  // handleUserInput();
 }
 
 function generateBrowserId(index) {
